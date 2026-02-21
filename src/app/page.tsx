@@ -1,66 +1,148 @@
-import Image from "next/image";
-import styles from "./page.module.css";
+"use client";
+import { useState } from "react";
+import { products as allProducts } from "@/lib/products";
 
-export default function Home() {
+export default function StorePage() {
+  const [query, setQuery] = useState("");
+  const [results, setResults] = useState(allProducts); // show all by default
+  const [filters, setFilters] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+
+  async function handleSearch(e: any) {
+    e.preventDefault();
+    if (!query.trim()) {
+      setResults(allProducts);
+      setFilters(null);
+      return;
+    }
+
+    setLoading(true);
+    setError(null);
+
+    try {
+      const res = await fetch("/api/search", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ query }),
+      });
+
+      const data = await res.json();
+      if (data.error) throw new Error(data.error);
+
+      setResults(data.products);
+      setFilters(data.filters);
+    } catch (err) {
+      setError("Search failed. Please try again." as any);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  function handleReset() {
+    setQuery("");
+    setResults(allProducts);
+    setFilters(null);
+    setError(null);
+  }
+
   return (
-    <div className={styles.page}>
-      <main className={styles.main}>
-        <Image
-          className={styles.logo}
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
+    <main style={{ maxWidth: 1100, margin: "0 auto", padding: "2rem" }}>
+      <h1 style={{ fontSize: "2rem", fontWeight: "bold", marginBottom: "0.5rem" }}>
+        🛍️ AI-Powered Store
+      </h1>
+      <p style={{ color: "#666", marginBottom: "1.5rem" }}>
+        Search in plain English — try "red shoes under $50" or "black jeans from Zara"
+      </p>
+
+      {/* Search Bar */}
+      <form onSubmit={handleSearch} style={{ display: "flex", gap: "0.5rem", marginBottom: "1rem" }}>
+        <input
+          type="text"
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          placeholder='Try: "cheap red shoes" or "high rated dresses"'
+          style={{
+            flex: 1, padding: "0.75rem 1rem", fontSize: "1rem",
+            border: "2px solid #ddd", borderRadius: "8px", outline: "none",
+          }}
         />
-        <div className={styles.intro}>
-          <h1>To get started, edit the page.tsx file.</h1>
-          <p>
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
-        </div>
-        <div className={styles.ctas}>
-          <a
-            className={styles.primary}
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
+        <button
+          type="submit"
+          disabled={loading}
+          style={{
+            padding: "0.75rem 1.5rem", background: "#0070f3", color: "white",
+            border: "none", borderRadius: "8px", cursor: "pointer", fontSize: "1rem",
+          }}
+        >
+          {loading ? "Searching..." : "Search"}
+        </button>
+        {filters && (
+          <button
+            type="button"
+            onClick={handleReset}
+            style={{
+              padding: "0.75rem 1rem", background: "#eee",
+              border: "none", borderRadius: "8px", cursor: "pointer",
+            }}
           >
-            <Image
-              className={styles.logo}
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className={styles.secondary}
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
+            Reset
+          </button>
+        )}
+      </form>
+
+      {/* Show what AI understood */}
+      {filters && (
+        <div style={{
+          background: "#f0f7ff", border: "1px solid #bde", borderRadius: "8px",
+          padding: "0.75rem 1rem", marginBottom: "1rem", fontSize: "0.9rem"
+        }}>
+          🤖 <strong>AI understood:</strong>{" "}
+          {Object.entries(filters)
+            .filter(([, v]) => v !== null)
+            .map(([k, v]) => `${k}: ${v}`)
+            .join(" · ") || "No filters applied"}
+          {" "}— <strong>{results.length} product(s) found</strong>
         </div>
-      </main>
-    </div>
+      )}
+
+      {error && (
+        <div style={{ color: "red", marginBottom: "1rem" }}>{error}</div>
+      )}
+
+      {/* Product Grid */}
+      <div style={{
+        display: "grid",
+        gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))",
+        gap: "1.5rem",
+      }}>
+        {results.length === 0 ? (
+          <p style={{ color: "#999", gridColumn: "1/-1" }}>No products found. Try a different search.</p>
+        ) : (
+          results.map((product) => (
+            <div key={product.id} style={{
+              border: "1px solid #eee", borderRadius: "12px", padding: "1.25rem",
+              boxShadow: "0 2px 8px rgba(0,0,0,0.06)", background: "white",
+            }}>
+              <div style={{
+                height: 120, background: "#f5f5f5", borderRadius: "8px",
+                display: "flex", alignItems: "center", justifyContent: "center",
+                fontSize: "2.5rem", marginBottom: "1rem"
+              }}>
+                {product.category === "shoes" ? "👟" : product.category === "dress" ? "👗" : product.category === "jeans" ? "👖" : "👕"}
+              </div>
+              <h3 style={{ margin: "0 0 0.25rem", fontSize: "1rem" }}>{product.name}</h3>
+              <p style={{ color: "#888", fontSize: "0.85rem", margin: "0 0 0.5rem" }}>
+                {product.brand} · {product.color}
+              </p>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                <span style={{ fontWeight: "bold", color: "#0070f3" }}>${product.price}</span>
+                <span style={{ color: "#f59e0b", fontSize: "0.85rem" }}>⭐ {product.rating}</span>
+              </div>
+            </div>
+          ))
+        )}
+      </div>
+    </main>
   );
 }
